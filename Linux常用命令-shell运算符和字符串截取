@@ -1,0 +1,251 @@
+2.8      shell运算符和字符串截取
+2.8.1     Shell数学运算
+shell中的赋值和操作默认都是字符串处理，在此记下shell中进行数学运算的几个特殊方法，以后用到的时候可以来看，呵呵
+
+1、错误方法举例 
+a) 
+var=1+1 
+echo $var 
+输出的结果是1+1，悲剧，呵呵 
+
+b) 
+var=1 
+var=$var+1 
+echo $var 
+输出结果是1+1，依然悲剧，呵呵 
+
+2、正确方法 
+1)使用let 
+var=1 
+let "var+=1" 
+echo $var 
+输出结果为2，这次没有悲剧 
+注意： 
+a)经我测试let几乎支持所有的运算符，在网上看到一篇文章说“let不支持++、--和逗号、(、)”,但经我测试自加、自减、以及括号的优先级都得到了很好的支持 
+b)方幂运算应使用“**” 
+c)参数在表达式中直接访问，不必加$ 
+d)一般情况下算数表达式可以不加双引号，但是若表达式中有bash中的关键字则需加上 
+e)let后的表达式只能进行整数运算 
+
+2)使用(()) 
+var=1 
+((var+=1)) 
+echo $var 
+输出结果为2 
+注意： 
+(())的使用方法与let完全相同 
+
+3)使用$[] 
+var=1 
+var=$[$var+1] 
+echo $var 
+输出结果位2 
+注意： 
+a)$[]将中括号内的表达式作为数学运算先计算结果再输出 
+b)对$[]中的变量进行访问时前面需要加$ 
+c)$[]支持的运算符与let相同，但也只支持整数运算 
+
+4)使用expr 
+var=1 
+var=`expr $var + 1` 
+echo $var 
+输出结果为2 
+注意： 
+a)expr后的表达式个符号间需用空格隔开 
+b)expr支持的操作符有： |、&、<、<=、=、!=、>=、>、+、-、*、/、% 
+c)expr支持的操作符中所在使用时需用\进行转义的有：|、&、<、<=、>=、>、* 
+e)expr同样只支持整数运算 
+
+5)使用bc(可以进行浮点数计算) 
+var=1 
+var=`echo "$var+1"|bc` 
+echo $var 
+输出结果为2 
+介绍： 
+bc是linux下的一个简单计算器，支持浮点数计算，在命令行下输入bc即进入计算器程序，而我们想在程序中直接进行浮点数计算时，利用一个简单的管道即可解决问题。 
+注意： 
+1)经我测试bc支持除位操作运算符之外的所有运算符。 
+2)bc中要使用scale进行精度设置 
+3)浮点数计算实例 
+var=3.14 
+var=`echo "scale=2;$var*3"|bc` 
+echo $var 
+输出结果为9.42 
+
+6)使用awk(可已进行浮点数计算) 
+var=1 
+var=`echo "$var 1"|awk '{printf("%g",$1*$2)}'` 
+echo $var 
+输出结果为2 
+介绍： 
+awk是一种文本处理工具，同时也是一种程序设计语言，作为一种程序设计语言，awk支持多种运算，而我们可以利用awk来进行浮点数计算，和上面bc一样，通过一个简单的管道，我们便可在程序中直接调用awk进行浮点数计算。 
+注意： 
+1)awk支持除微操作运算符之外的所有运算符 
+2)awk内置有log、sqr、cos、sin等等函数 
+3)浮点数计算实例 
+var=3.14 
+var=`echo "$var 2"|awk '{printf("%g",sin($1/$2))}'` 
+echo $var 
+输出结果为1 
+3、总结 
+终于把所有能搜集到的资料看完，并最后总结出一套自己的东西了，以后再遇到类似问题就有的看了，哈哈～ 
+
+Yorking Alan
+
+ 
+
+
+
+1   $ declare –i num
+
+2   $ num=hello
+
+    $ echo $num
+
+    0
+
+3   $ num=5 + 5
+
+    bash: +: command not found
+
+4   $ num=5+5
+
+    $ echo $num
+
+    10
+
+5   $ num=4*6
+
+    $ echo $num
+
+    24
+
+6   $ num="4 * 6"
+
+    $ echo $num
+
+    24
+
+7   $ num=6.5
+
+    bash: num: 6.5: syntax error in expression (remainder of expression
+
+is ".5")
+
+说明
+
+1. 带-i选项的declare命令创建一个整型变量num。
+
+2. 试着将字符串“hello”赋值给变量num，结果变量的值为0。
+
+3. 如果没有使用let命令，就必须把空白符放在引号中或者删掉。
+
+4. 删掉空白符后，运算正确执行。
+
+5. 执行乘法运算，并把结果赋给变量num。
+
+6. 把空白符放在引号中，则乘法运算可以执行，并阻止shell展开通配符(*)。
+
+7. 由于变量设置为整型，赋值时给了一个带小数点的数，导致bash报告语法错误。
+
+ 
+
+2.8.2     Shell字符串运算
+ 
+
+str="abc123abcABC"
+#    |-|
+#    |-------|
+
+#计算字符串的长度 
+echo ${#str}    #12
+
+#位置参数有关操作
+
+
+echo ${#*}      #位置参数的个数
+echo ${#@}      #位置参数的个数和上面的效果一样
+echo $*         #把所有的位置参数作为一个字符串输出
+echo $@         #效果同上
+
+
+#字串截取
+
+
+#
+#    ${string#substring}
+#         从$string的左边第一个字符截掉第一个匹配的$substring
+#    ${string##substring}
+#         从$string的左边第一个字符截掉最后一个个匹配的$substring
+#
+#从左边开始
+echo ${str#a*c} #a到c的最短匹配
+echo ${str##a*c} #a到c的最长匹配
+
+#从右边开始
+echo ${str%a*C}     #从右边的最后一个字符开始寻找a到B的最短匹配
+echo ${str%%a*B}    #从右边最后一个字符开始寻找a到B的最长匹配
+                    #这里找不到模式
+
+#==取子串==
+
+
+#   ${string:position}
+#   ${string:positon:length}
+#
+echo ${str:2}       #从第2个位置开始提取字符串的值
+echo ${str:2:3}     #从第2个位置开始提取长度为3个字符的值
+#反向提取子串
+echo ${str:(-2)}        #从反向的第2个位置开始提取字符串
+echo ${str:(-2):6}      #从反向的第2个字符的位置开始提取长度为6个字符的串(:(不可能把)
+                        #总共的字符长度只有2个怎么提取6个呢呵呵
+echo ${str:(-6):3}      #6个中提出3个总可以了把
+
+#位置参数的提取
+
+echo ${*:2}         #从第二个位置参数开始提取后面所有位置参数的值
+echo ${*:2:3}           #从第二个位置参数开始提取3个位置参数的值
+
+ 
+
+补充：
+
+1)echo   abcdefg   |   awk   '{print   substr($1,length($1)-2,3)}'  #efg , 从倒数第三个，即正数第五个，取3个字符。
+
+2)echo $string |cut -c 2-3 （取string 的第2到第3个字符）
+
+ 
+
+ 
+
+#=子串替换=
+
+
+# ${string/substring/replacement}
+#   使用$replacement来替换第一个匹配的$substring.
+# ${string//substring/replacement}
+#   使用$replacement来替换所有匹配的$substring.
+#
+# ${string/#substring/replacement}
+#   如果$substring匹配$string的开头部分,那么就用$replacement来替换$substring.
+# ${string/%substring/replacement}
+#   如果$substring匹配$string的结尾部分,那么就用$replacement来替换$substring.
+#
+str1="123abcABCab12"
+
+echo ${str1/12/hover}   #仅仅替换了第一个
+echo ${str1//12/hover}  #替换了所有的
+
+ 
+
+echo ${str1/#12/hover}  # 从头开始匹配12,如果找到做替换
+echo ${str1/%12/hover}  # 从尾开始匹配12,如果找到做替换
+
+ 
+
+#字符串定位
+
+str=aakeywordbb
+
+startpos=$(echo   $str|awk   '{print   index($str,"keyword")}')   
+echo   $startpos   #输出2(注意从0开始计算，即第一个a的位置为0)
