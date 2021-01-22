@@ -1,0 +1,578 @@
+2.13   LVM（逻辑卷管理）
+2.13.1    什么是LVM?
+LVM是 Logical Volume Manager(逻辑卷管理)的简写，它由Heinz Mauelshagen在Linux 2.4内核上实现，目前最新版本为：稳定版1.0.5，开发版 1.1.0-rc2，以及LVM2开发版。
+
+与传统的磁盘与分区相比，LVM为计算机提供了更高层次的磁盘存储。它使系统管理员可以更方便的为应用与用户分配存储空间。在LVM管理下的存储卷可以按需要随时改变大小与移除(可能需对文件系统工具进行升级)。LVM也允许按用户组对存储卷进行管理，允许管理员用更直观的名称(如"sales'、 'development')代替物理磁盘名(如'sda'、'sdb')来标识存储卷。
+
+2.13.2    为什么使用LVM?
+LVM通常用于装备大量磁盘的系统，但它同样适于仅有一、两块硬盘的小系统。
+
+2.13.3     小系统使用LVM的益处
+传统的文件系统是基于分区的，一个文件系统对应一个分区。这种方式比较直观，但不易改变：
+
+1.不同的分区相对独立，无相互联系，各分区空间很易利用不平衡，空间不能充分利用；
+
+2.当一个文件系统／分区已满时，无法对其扩充，只能采用重新分区／建立文件系统，非常麻烦；或把分区中的数据移到另一个更大的分区中；或采用符号连接的方式使用其它分区的空间。
+
+3.如果要把硬盘上的多个分区合并在一起使用，只能采用再分区的方式，这个过程需要数据的备份与恢复。
+
+当采用LVM时，情况有所不同：
+
+1.硬盘的多个分区由LVM统一为卷组管理，可以方便的加入或移走分区以扩大或减小卷组的可用容量，充分利用硬盘空间；
+
+2.文件系统建立在逻辑卷上，而逻辑卷可根据需要改变大小(在卷组容量范围内)以满足要求；
+
+3.文件系统建立在LVM上，可以跨分区，方便使用；
+
+2.13.4    大系统使用LVM的益处
+在使用很多硬盘的大系统中，使用LVM主要是方便管理、增加了系统的扩展性。
+
+在一个有很多不同容量硬盘的大型系统中，对不同的用户的空间分配是一个技巧性的工作，要在用户需求与实际可用空间中寻求平衡。
+
+用户／用户组的空间建立在LVM上，可以随时按要求增大，或根据使用情况对各逻辑卷进行调整。当系统空间不足而加入新的硬盘时，不必把用户的数据从原硬盘迁移到新硬盘，而只须把新的分区加入卷组并扩充逻辑卷即可。同样，使用LVM可以在不停服务的情况下。把用户数据从旧硬盘转移到新硬盘空间中去。
+
+ 
+
+2.13.5    LVM构成   
+LVM的结构简图如下：
+hda1 hdc1 sdc (PV:s 物理卷，一般为分区或整个硬盘)
+\ ｜ /
+\ ｜ /
+diskvg (VG 卷组由物理卷组成)
+/ | \
+/ | \
+usrlv rootlv varlv (LV:s 逻辑卷在卷组上创建)
+| | |
+ext2 reiserfs xfs (建立在逻辑卷上的文件系统)
+
+1.         卷组volume group (VG)
+
+卷组是LVM中最高抽象层，是由一个或多个物理卷所组成的存储器池。
+
+2.         物理卷physical volume (PV)
+
+典型的物理卷是硬盘分区，但也可以是整个硬盘或已创建的Software RAID 卷。
+
+3.         逻辑卷logical volume (LV)
+
+逻辑卷相当于非LVM系统中的分区，它在卷组上建立，是一个标准的块设备，可以在其上建立文件系统。
+
+4.         物理块physical extent (PE)
+
+物理卷按大小相等的"块"为单位存储，块的大小与卷组中逻辑卷块的大小相同。
+
+5.         逻辑块logical extent (LE)
+
+逻辑卷按"块"为单位存储，在一卷组中的所有逻辑卷的块大小是相同的。
+
+6.         总述
+
+例子：有一个卷组VG1，它的物理块大小为4MB。在这个卷组中为2个硬盘分区：/dev/hda1与/dev/hdb1，它们分别成为物理卷PV1与PV2。物理卷将按4MB为单位分块，如PV1与PV2分别可分为99与248块。在VG1上建立逻辑卷，它的大小可在1至347(99+248)块之间。当建立逻辑卷时，会建立逻辑块与物理块的一一映射关系。
+
+7.         映射模式 (linear/striped)
+
+在建立逻辑卷时，可以选择逻辑块与物理块映射的策略：
+
+1.线性映射－将把一定范围的物理块按顺序分配给逻辑卷，如 LV的LE 1 - 99映射到PV1，LE 100 - 347映射到PV2。
+
+2.交错模式－将把逻辑块交错映射到不同的物理卷中，如 LV的LE 1映射为PV1的PE1，LE 2映射为PV2的PE1，LE 3映射为PV1的PE2...。这种方式可以提高逻辑卷的性能，但是采用这种方式建立的逻辑卷将不能在它们所在的物理卷中扩展。
+
+8.         Snapshots (快照)
+
+LVM提供了一个非常好的特性：snapshots。它允许管理员建立一个块设备：该设备是一逻辑卷在某一时刻冻结的精确拷贝。这个特性通常用于批处理过程(如备份)需要处理逻辑卷，但又不能停止系统。当操作完成时，snapshot设备可以被移除。这个特性要求在建立snapshot设备时逻辑卷处于相容状态。
+
+ 
+
+2.13.6    LVM的一般操作   
+1)     建立PV   
+
+为把一个磁盘或分区作为PV，首先应使用 pvcreate 对其初始化，如对IDE硬盘/dev/hdb，
+
+"使用整个磁盘，
+
+# pvcreate /dev/hdb
+
+这将在磁盘上建立VG的描述符。
+
+"使用磁盘分区，如/dev/hdb1。
+
+使用fdisk 的t 命令把/dev/hda1的分区类型设为0x8e，然后运行：
+
+# pvcreate /dev/hdb1
+
+这将在分区/dev/hda1上建立VG的描述符。
+
+PV初始化命令pvcreate的一般用法为：
+
+pvcreate PV1 [ PV2 ... ]
+
+它的参数可以是整个磁盘、分区，也可以是一loop设备。
+
+2)     建立VG   
+
+在使用pvcreate 建立了PV后，可以用vgcreate 建立卷组，如有PV1、PV2分别是/dev/hda1与/dev/hdb1，使用
+
+# vgcreate testvg /dev/hda1 /dev/hdb1
+
+将建立一个名为testvg的卷组，它由两个PV：/dev/hda1与/dev/hdb1组成。vgcreate的一般用法为：
+
+# vgcreate [options] VG_name PV1 [PV2 ...]
+
+其中的可选项包括设置VG最大支持的LV数、PE大小(缺省为4MB)等。
+
+注意：当使用devfs系统时，应使用设备的全名而不能是Symbol Link，如对上例应为：
+
+# vgcreate testvg /dev/ide/host0/bus0/target0/lun0/part1\
+
+/dev/ide/host0/bus0/target1/lun0/part1
+
+3)     激活VG   
+
+在被激活之前，VG与LV是无法访问的，这时可用命令：
+
+# vgchange -a y testvg
+
+激活所要使用的卷组。当不再使用VG时，可用
+
+＃ vgchange -a n testvg
+
+使之不再可用。
+
+vgchange可用来设置VG的一些参数，如是否可用( -a [y|n]选项)、支持最大逻辑卷数等。
+
+4)     移除VG   
+
+在移除一卷组前应确认卷组中不再有逻辑卷，首先休眠卷组：
+
+# vgchange -a n testvg
+
+然后可用vgremove移除该卷组：
+
+# vgremove testvg
+
+5)     为VG增加新PV   
+
+当卷组空间不足时，可以加入新的物理卷来扩大容量，这时可用命令vgextend，如
+
+# vgextend testvg /dev/hdc1
+
+其中/dev/hdc1是新的PV，当然在这之前，它应使用pvcreate初始化。
+
+6)     从VG移除PV   
+
+在移除PV之前，应确认该PV没用被LV使用，这可用命令pvdisplay查看，如：
+
+# pvdisplay /dev/hda1
+
+--- Physical volume ---
+
+PV Name /dev/hda1
+
+VG Name testvg
+
+PV Size 1.95 GB / NOT usable 4 MB [LVM: 122 KB]
+
+PV# 1
+
+PV Status available
+
+Allocatable yes (but full)
+
+Cur LV 1
+
+PE Size (KByte) 4096
+
+Total PE 499
+
+Free PE 0
+
+Allocated PE 499
+
+PV UUID Sd44tK-9IRw-SrMC-MOkn-76iP-iftz-OVSen7
+
+如这个PV仍在被使用，则应把数据传移到其它PV上。在确认它未被使用后，可用命令vgreduce把它从VG中删除，如：
+
+# vgreduce testvg /dev/hda1
+
+7)     创建LV   
+
+在创建逻辑卷前，应决定LV使用哪些PV，这可用命令vgdisplay与pvdisplay查看当前卷组与PV的使用情况。在已有的卷组上创建逻辑卷使用命令lvcreate，如：
+
+# lvcreate -L1500 -ntestlv testvg
+
+将在卷组testvg上建立一个1500MB的线性LV，其命名为testlv，对应的块设备为/dev/testvg/testlv。
+
+# lvcreate -i2 -I4 -l100 -nanothertestlv testvg
+
+将在卷组testvg上建立名为anothertestlv的LV，其大小为100LE，采用交错方式存放，交错值为2，块大小为4KB。
+
+如果需要LV使用整个VG，可首先用vgdisplay 查找 Total PE 值，然后在运行lvcreate时指定，如：
+
+# vgdisplay testvg | grep "Total PE"
+
+Total PE 10230
+
+# lvcreate -l 10230 testvg -n mylv
+
+将使用卷组testvg的全部空间创建逻辑卷mylv。
+
+在创建逻辑卷后，就可在其上创建文件系统并使用它。
+
+命令lvcreate的常用方法：
+
+lvcreate [options] -n 逻辑卷名 卷组名 [PV1 ... ]
+
+其中的常用可选项有：
+
+"-i Stripes ：采用交错(striped)方式创建LV，其中Stripes指卷组中PV的数量。
+
+"-I Stripe_size ：采用交错方式时采用的块大小(单位为KB)，Stripe_size必须为2的指数：2N ，N=2,3...9。
+
+"-l LEs ：指定LV的逻辑块数。
+
+"-L size ：指定LV的大小，其后可以用K、M、G表示KB、MB、GB。
+
+"-s ：创建一已存在LV的snapshot卷。
+
+"-n name ：为LV指定名称。
+
+8)     删除LV   
+
+为删除一个逻辑卷，必须首先从系统卸载其上的文件系统，然后可用lvremove删除，如：
+
+# umount /dev/testvg/testlv
+
+# lvremove /dev/testvg/testlv
+
+lvremove -- do you really want to remove "/dev/testvg/testlv"? [y/n]: y
+
+lvremove -- doing automatic backup of volume group "testvg"
+
+lvremove -- logical volume "/dev/testvg/testlv" successfully removed
+
+9)     扩展LV   
+
+为逻辑卷增加容量可用使用lvextend，即可以指定要增加的尺寸也可以指定扩容后的尺寸，如
+
+# lvextend -L12G /dev/testvg/testlv
+
+lvextend -- extending logical volume "/dev/testvg/testlv" to 12 GB
+
+lvextend -- doing automatic backup of volume group "testvg"
+
+lvextend -- logical volume "/dev/testvg/testlv" successfully extended
+
+将扩大逻辑卷testlv的容量为12GB。
+
+# lvextend -L+1G /dev/testvg/testlv
+
+lvextend -- extending logical volume "/dev/testvg/testlv" to 13 GB
+
+lvextend -- doing automatic backup of volume group "testvg"
+
+lvextend -- logical volume "/dev/testvg/testlv" successfully extended
+
+将为LV testlv再增大容量1GB至13GB。
+
+为LV扩容的一个前提是：LV所在的VG有足够的空闲存储空间可用。
+在为LV扩容之后，应同时为LV之上的文件系统扩容，使二者相匹配。对不同的文件系统有相对应的扩容方法。
+
+2.13.7  ext2/ext3
+除非内核已有ext2online 补丁，否则在改变ext2/ext3文件系统的大小时应卸载它：
+
+# umount /dev/testvg/testlv
+
+# resize2fs /dev/testvg/testlv
+
+# mount /dev/testvg/testlv /home
+
+这里假设testlv安装点为/home。在es2fsprogs-1.19或以上版本中包含resize2fs命令。
+
+在LVM发行包中有一个称为e2fsadm的工具，它同时包含了lvextend与resize2fs的功能，如：
+
+# e2fsadm -L+1G /dev/testvg/testlv
+
+等价于下面两条命令：
+
+# lvextend -L+1G /dev/testvg/testlv
+
+# resize2fs /dev/testvg/testlv
+
+但用户仍需首先卸载文件系统。
+
+2.13.8  reiserfs
+与ext2不同，Reiserfs不必卸载文件系统，如：
+
+# resize_reiserfs -f /dev/testvg/testvl
+
+2.13.9  xfs
+SGI XFS文件系统必须在安装的情况下才可改变大小，并且要使用安装点而不是块设备，如：
+
+# xfs_growfs /home
+
+缩小LV   
+
+逻辑卷可扩展同样也可缩小，但应在缩小LV之前首先减小文件系统，否则将可能导致数据丢失。
+
+2.13.10           ext2/ext3
+可以使用LVM的工具e2fsadm操作，如：
+
+# umount /home
+
+# e2fsadm -L-1G /dev/testvg/testvl
+
+# mount /home
+
+如果采用resize2fs，就必须知道缩少后卷的块数：
+
+# umount /home
+
+# resize2fs /dev/testvg/testvl 524288
+
+# lvreduce -L-1G /dev/testvg/testvl
+
+# mount /home
+
+2.13.11           reiserfs
+在缩小reiserfs时，应首先卸载它，如：
+
+# umount /home
+
+# resize_reiserfs -s-1G /dev/testvg/testvl
+
+# lvreduce -L-1G /dev/testvg/testvl
+
+# mount -treiserfs /dev/testvg/testvl /home
+
+2.13.12           3.10.3 xfs
+2.13.13           无法实现。
+在PV间转移数据   
+
+若要把一个PV从VG中移除，应首先把其上所有活动PE中的数据转移到其它PV上，而新的PV必须是本VG的一部分，有足够的空间。如要把PV1:/dev/hda1上的数据移到PV2:/dev/sda1上可用命令：
+
+# pvmove /dev/hdb1 /dev/sdg1
+
+如果在该PV之上的LV采用交错方式存放，则这个转移过程不能被打断。
+建议在转移数据之前备份LV中的数据。
+
+系统启动／关闭   
+
+"为使系统启动时可自动激活并使用LVM，可将以下几行添加到启动 rc 脚本中：
+
+/sbin/vgscan
+
+/sbin/vgchange -a y
+
+这些行将浏览所有可用的卷组并激活它们。要注意的是，它们应在安装卷组上的文件系统操作之前被执行，否则将无法正常安装文件系统。
+
+"在系统关机时，要关闭LVM，这可将以下这行添加到关机 rc 脚本中，并确保它在卸装了所有文件系统后执行：
+
+/sbin/vgchange -a n
+
+ 
+
+2.13.14磁盘分区问题   
+一个磁盘上的多个分区
+
+LVM允许PV建立在几乎所有块设备上，如整个硬盘、硬盘分区、Soft RAID：
+
+# pvcreate /dev/sda1
+
+# pvcreate /dev/sdf
+
+# pvcreate /dev/hda8
+
+# pvcreate /dev/hda6
+
+# pvcreate /dev/md1
+
+所以在一块硬盘上可以有多个PV／分区，但一般建议一块硬盘上只有一个PV：
+
+"便于管理，易于处理错误
+
+"避免交错方式中性能下降。LVM不能辨别两个PV是否在同一硬盘上，故当采用交错方式时，会导致性能更差。
+
+但在某些情况下可采用：
+
+"把已存在的系统合并到LVM中。在一个只有少数硬盘的系统中，转换为LVM时需在在各分区之间转移数据。
+
+"把一个大硬盘分给不同的VG使用。
+
+当一个VG的有不同的PV在同一硬盘时，创建交错方式的LV时应注意使用哪一个PV。
+
+2.13.15 Sun disk labels
+仅在SUN的SPARC系统中有此问题。
+
+建立LVM用例   
+
+在本节中，将在3块SCSI硬盘：/dev/sda，/dev/sdb，/dev/sdc上按步建立LVM。
+
+准备分区   
+
+首先要做的是初始化硬盘，建立PV，这将会删除硬盘上的原有数据。在此，用整个硬盘为PV：
+
+# pvcreate /dev/sda
+
+# pvcreate /dev/sdb
+
+# pvcreate /dev/sdc
+
+pvcreate在每个硬盘的起始端建立卷组描述区( volume group descriptor area, VGDA)。
+
+创建卷组   
+
+利用上面三个PV建立卷组：
+
+# vgcreate test_vg /dev/sda /dev/sdb /dev/sdc/
+
+然后可用vgdisplay 查看／验证卷组的信息：
+
+# vgdisplay
+
+--- Volume Group ---
+
+VG Name test_vg
+
+VG Access read/write
+
+VG Status available/resizable
+
+VG # 1
+
+MAX LV 256
+
+Cur LV 0
+
+Open LV 0
+
+MAX LV Size 255.99 GB
+
+Max PV 256
+
+Cur PV 3
+
+Act PV 3
+
+VG Size 1.45 GB
+
+PE Size 4 MB
+
+Total PE 372
+
+Alloc PE / Size 0 / 0
+
+Free PE / Size 372/ 1.45 GB
+
+VG UUID nP2PY5-5TOS-hLx0-FDu0-2a6N-f37x-0BME0Y
+
+其中最重要的前三条要正确，且VS size是以上三个硬盘容量之和。
+
+建立LV   
+
+在确定卷组test_vg正确后，就可在其上创建LV。LV的大小可在VG大小范围内任意选择，如同在硬盘上分区。
+
+ 建立线性方式LV
+
+在test_vg上建立一个大小为1GB的线性方式LV：
+
+# lvcreate -L1G -ntest_lv test_vg
+
+lvcreate -- doing automatic backup of "test_vg"
+
+lvcreate -- logical volume "/dev/test_vg/test_lv" successfully created
+
+建立交错方式LV
+
+在test_vg上建立一个大小为1GB的交错方式LV，交错参数为4KB：
+
+# lvcreate -i3 -I4 -L1G -ntest_lv test_vg
+
+lvcreate -- rounding 1048576 KB to stripe boundary size 1056768 KB / 258 PE
+
+lvcreate -- doing automatic backup of "test_vg"
+
+lvcreate -- logical volume "/dev/test_vg/test_lv" successfully created
+
+注意：如果使用 -i2参数，则LV将仅使用test_vg中的两块硬盘。
+
+建立文件系统   
+
+在LV test_lv创建后，就可在其上建立文件系统，
+
+如，ext2/ext3系统：
+
+# mke2fs /dev/test_vg/test_lv
+
+如，reiserfs：
+
+＃ mkreiserfs /dev/test_vg/test_lv
+
+测试文件系统   
+
+安装LV：
+
+# mount /dev/test_vg/test_lv /mnt
+
+# df
+
+Filesystem 1k-blocks Used Available Use% Mounted on
+
+/dev/hda1 1311552 628824 616104 51% /
+
+/dev/test_vg/test_lv 1040132 20 987276 0% /mnt
+
+则可以通过/mnt访问LV。
+
+使用snapshot 做备份   
+
+例如我们要对卷组"test_vg"每晚进行数据库备份，就要采用snapshot类型的卷组。这种卷组是其它卷组的一个只读拷贝，它含有在创建snapshot卷组时原卷组的所有数据，这意味你可以备份这个卷组而不用担心在备份过程中数据会改变，也不需要暂时关闭数据库卷以备份。
+
+建立snapshot卷   
+
+一个snapshot卷可大可小，但必须有足够的空间存放所有在本snapshot卷生存期间改变的数据，一般最大要求是原卷组的1.1倍。如空间不够，snapshot卷将不能使用。
+
+# lvcreate -L592M -s -n dbbackup /dev/test_vg/databases
+
+lvcreate -- WARNING: the snapshot must be disabled if it gets full
+
+lvcreate -- INFO: using default snapshot chunk size of 64 KB for "/dev/test_vg/dbbackup"
+
+lvcreate -- doing automatic backup of "test_vg"
+
+lvcreate -- logical volume "/dev/test_vg/dbbackup" successfully created
+
+安装snapshot卷   
+
+现在可以安装该卷：
+
+# mkdir /mnt/test_vg/dbbackup
+
+# mount /dev/test_vg/dbbackup /mnt/test_vg/dbbackup
+
+mount: block device /dev/test_vg/dbbackup is write-protected, mounting read-only
+
+从上面可以看出，snapshot卷是只读的。
+
+当使用XFS文件系统时，mount命令要使用nouuid与norecovery选项：
+
+# mount /dev/test_vg/dbbackup /mnt/test_vg/dbbackup -o nouuid,norecovery,ro
+
+备份数据   
+
+如采用tar向磁带备份：
+
+# tar -cf /dev/rmt0 /mnt/test_vg/dbbackup
+
+删除snapshot 卷   
+
+在完成备份后，就可卸载并删除snapshot卷。
+
+# umount /mnt/test_vg/dbbackup
+
+# lvremove /dev/test_vg/dbbackup
+
+lvremove -- do you really want to remove "/dev/test_vg/dbbackup"? [y/n]: y
+
+lvremove -- doing automatic backup of volume group "test_vg"
+
+lvremove -- logical volume "/dev/test_vg/dbbackup" successfully removed
