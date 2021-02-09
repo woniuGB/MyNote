@@ -1,0 +1,48 @@
+温习之前处理的问题单
+《TaiShan 200 服务器产品3D展示（型号 2480）》http://support-it.huawei.com/server-3d/res/server/taishan2480/index.html?lang=cn
+《TaiShan 200 服务器 用户指南 (型号2480) 03》https://support.huawei.com/enterprise/zh/doc/EDOC1100145261
+《TaiShan 机架服务器 iBMC 告警处理 11》https://support.huawei.com/enterprise/zh/doc/EDOC1100048793
+《TaiShan 200 服务器 维护与服务指南 (型号2480) 03》https://support.huawei.com/enterprise/zh/doc/EDOC1100145260
+《RAID控制卡 用户指南（鲲鹏处理器）10》https://support.huawei.com/enterprise/zh/doc/EDOC1100048779
+
+
+昇腾计算训练硬件底层软件整体架构训练
+
+BIOS维护组能力提升培训[x30010028]
+
+2021/2/4
+多位数的后缀表达式求值：https://blog.csdn.net/NEFUZYJ/article/details/89714741
+C++实现表达式求值（括号，小数点，负数）：https://blog.csdn.net/yaoxunji/article/details/79676744
+OJ训练遇到的问题
+一、
+Segmentation Fault错误原因总结：https://blog.csdn.net/u010150046/article/details/77775114
+我遇到的问题：将整型格式化输出时使用%s，访问了不可访问的内存，导致Segmentation Fault
+二、
+错误写法：(char *)malloc(sizeof(char))
+malloc申请内存时要写好长度，不写长度的话，当字符串长度太长时就会出现问题。
+正确写法：(char *)malloc(sizeof(char)*100)
+
+welink积分兑换码：
+2021666
+2021888
+jnh0xi64n10j
+jnh17wj7z15x
+
+
+
+2/5
+Java jar打包成exe应用程序（超详细）https://blog.csdn.net/m0_37701381/article/details/104163877
+
+
+2/7
+Ubuntu18.04更换国内源（阿里，网易，中科大，清华等源）https://www.cnblogs.com/fanbi/p/10423080.html
+
+
+2/8
+C语言图形化界面 https://blog.csdn.net/weixin_44044411/article/details/104276757
+C语言实现动画控制 https://blog.csdn.net/weixin_44044411/article/details/85217818
+
+2/9
+UEFI 编译环境搭建 http://3ms.huawei.com/km/blogs/details/8910027
+第二章 UEFI 开发环境搭建 http://3ms.huawei.com/km/blogs/details/5259149
+打patch https://code.huawei.com/LOG_uniBIOS_Hi1620/HwPkg/wikis/Home/Patch
