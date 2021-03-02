@@ -1,0 +1,168 @@
+1、编译前准备
+
+ 
+
+查看自己的编译环境：
+
+下载edk2代码，我下载的是tag:edk2-stable201908 tag
+
+https://github.com/tianocore/edk2/releases/tag/edk2-stable201908
+
+下载openssl,我下载的是tag:OpenSSL_1_1_1g
+
+https://github.com/openssl/openssl/releases/tag/OpenSSL_1_1_1g
+
+ 
+
+下载nasm:https: https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.gz
+
+ 
+
+ 
+
+使用解压命令：
+
+tar -xzvf filename.tar.gz
+
+Unzip filename.zip
+
+Tar -xvf filename.tar
+
+ 
+
+将edk2代码解压到edk2目录
+
+ 
+
+2、进入到edk2/BaseTools
+
+ 
+
+执行 make clean
+
+ 
+
+3、回到edk2目录下执行
+
+make -C BaseTools
+
+ 
+
+source edksetup.sh
+
+ 
+
+4、build -a X64 -t GCC48 -p OvmfPkg/OvmfPkgX64.dsc编译失败
+
+ 
+
+因为没有加openssl的目录，自己手动加一下即可，后面可能还会有其他错误，基本上都是目录或者头文件的问题，自行解决。
+http://image.huawei.com/tiny-lts/v1/images/9cabe270d386a502b5cc_871x404.jpg@900-0-90-f.jpg
+@HGH1000073171 ： —/03 edkII/edk2 -edk2 stable201908$ . ">
+ 
+
+5、编译结果
+http://image.huawei.com/tiny-lts/v1/images/5983f270d386a5f62c2b_576x454.jpg@900-0-90-f.jpg
+ 
+
+附上自己写的编译脚本。
+
+ 
+
+#!/bin/bash
+
+set -e
+
+ 
+
+cd $(dirname $0)
+
+export SCRIPTS_ROOT_PATH=$(pwd)
+
+ 
+
+echo $(pwd)
+
+echo $PATH
+
+ 
+
+export PROJECT_ROOT_PATH=$(pwd)
+
+export EDK_SOURCE_PATH=$PROJECT_ROOT_PATH/edk2-edk2-stable201908
+
+ 
+
+export OPENSSL_ROOT_PATH=$PROJECT_ROOT_PATH/edk2-edk2-stable201908/CryptoPkg/Library/OpensslLib/openssl
+
+export OPENSSL_ROOT_PATH1=$OPENSSL_ROOT_PATH/crypto/include
+
+export OPENSSL_ROOT_PATH2=$PROJECT_ROOT_PATH/edk2-edk2-stable201908/CryptoPkg/Library/OpensslLib/openssl/include
+
+#export EDK2_PLATFORM_PATH=$PROJECT_ROOT_PATH/edk2-platforms-master
+
+#export OUTPUT_ROOT_PATH=$PROJECT_ROOT_PATH/output
+
+ 
+
+#export PYTHON3_ENABLE=FALSE
+
+#export LC_CTYPE=C
+
+#export PATH=$PROJECT_ROOT_PATH/package/nasm-2.15.05/nasm-2.15.05:$PATH
+
+export PATH=$PROJECT_ROOT_PATH/compile_tools/nasm-2.15.05:$PATH
+
+echo "xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+echo $PATH
+
+echo "xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+#export GCC5_AARCH64_PREFIX=aarch64-linux-gnu-
+
+ 
+
+export PACKAGES_PATH=$OPENSSL_ROOT_PATH:$OPENSSL_ROOT_PATH1:$OPENSSL_ROOT_PATH2
+
+echo $PACKAGES_PATH
+
+echo "xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+ 
+
+export EDK_TOOLS_PATH=$EDK_SOURCE_PATH/BaseTools
+
+ 
+
+cd $EDK_TOOLS_PATH
+
+echo $(pwd)
+
+ 
+
+#make clean
+
+cd $EDK_SOURCE_PATH
+
+#make -C BaseTools
+
+ 
+
+ 
+
+source $EDK_SOURCE_PATH/edksetup.sh
+
+cmd="build -a X64 -t GCC48 -p OvmfPkg/OvmfPkgX64.dsc"
+
+ 
+
+echo $cmd
+
+$cmd
+
+ 
+
+ 
+
+set +e
